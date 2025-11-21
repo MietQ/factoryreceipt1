@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel Administracyjny - FactoryReceipt</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    header {
+      background-color: #e0e0e0;
+      padding: 10px;
+      text-align: right;
+    }
+    header span {
+      margin-right: 20px;
+    }
+    nav {
+      margin-bottom: 20px;
+    }
+    nav a {
+      margin-right: 20px;
+      text-decoration: none;
+      color: #007bff;
+      cursor: pointer;
+    }
+    nav a.active {
+      font-weight: bold;
+      text-decoration: underline;
+    }
+    section {
+      background-color: #fff;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    form label {
+      display: block;
+      margin-top: 10px;
+    }
+    form input, form textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    form button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #errorMsg {
+      color: red;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    #infoMsg {
+      color: green;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>Panel Administracyjny</span>
+  <button onclick="logout()">Wyloguj</button>
+</header>
+
+<nav>
+  <a id="nav-users" onclick="loadUsers()" class="active">Lista użytkowników</a>
+  <a id="nav-newshop" onclick="loadNewShop()">Nowy sklep</a>
+  <a id="nav-shops" onclick="loadShops()">Sklepy na stronie głównej</a>
+</nav>
+
+<section id="content">
+  <!-- Domyślnie wyświetlana jest lista użytkowników -->
+</section>
+
+<script>
+  //--------------------------------------------------------------------------------
+  // 1. Inicjalizacja: sprawdzamy token i userId
+  //--------------------------------------------------------------------------------
+  window.onload = () => {
+    const token = localStorage.getItem("jwtToken");
+    const userId = localStorage.getItem("loggedUserId");
+    if (!token || !userId) {
+      alert("Brak tokenu lub userId. Zaloguj się ponownie.");
+      window.location.href = "login.html";
+      return;
+    }
+    // Domyślnie ładujemy listę użytkowników
+    loadUsers();
+  };
+
+  //--------------------------------------------------------------------------------
+  // 2. Funkcja wylogowania
+  //--------------------------------------------------------------------------------
+  function logout() {
+    localStorage.removeItem("loggedUserId");
+    localStorage.removeItem("jwtToken");
+    window.location.href = "login.html";
+  }
+
+  //--------------------------------------------------------------------------------
+  // 3. Ustawienie aktywnej zakładki
+  //--------------------------------------------------------------------------------
+  function setActiveTab(tabId) {
+    document.getElementById("nav-users").classList.remove("active");
+    document.getElementById("nav-newshop").classList.remove("active");
+    document.getElementById("nav-shops").classList.remove("active");
+    document.getElementById(tabId).classList.add("active");
+  }
+
+  //--------------------------------------------------------------------------------
+  // 4. Pobranie listy użytkowników
+  //--------------------------------------------------------------------------------
+  function loadUsers() {
+    setActiveTab("nav-users");
+    const content = document.getElementById("content");
+    content.innerHTML = "<h2>Lista użytkowników</h2><div id='errorMsg'></div><div id='infoMsg'></div>";
+
+    const token = localStorage.getItem("jwtToken");
+    fetch('/admin/users', {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Błąd: " + response.statusText);
+      }
+      return response.json();
+    })
+    .then(users => {
+      let html = "<ul>";
+      users.forEach(u => {
+        html += `<li>ID: ${u.userId}, E-mail: ${u.email || "Brak"}, Typ: ${u.accountType}</li>`;
+      });
+      html += "</ul>";
+      content.innerHTML = "<h2>Lista użytkowników</h2>" + html;
+    })
+    .catch(err => {
+      document.getElementById("errorMsg").innerText = "Błąd podczas pobierania danych użytkowników: " + err;
+    });
+  }
+
+  //--------------------------------------------------------------------------------
+  // 5. Dodawanie nowego sklepu
+  //--------------------------------------------------------------------------------
+  function loadNewShop() {
+    setActiveTab("nav-newshop");
+    const content = document.getElementById("content");
+    content.innerHTML = `
+      <h2>Dodaj nowy sklep</h2>
+      <div id="errorMsg"></div>
+      <div id="infoMsg"></div>
+      <form id="newShopForm">
+        <label for="storeName">Nazwa sklepu:</label>
+        <input type="text" id="storeName" required>
+
+        <label for="senderEmail">E-mail nadawcy:</label>
+        <input type="email" id="senderEmail" required>
+
+        <label for="senderName">Nazwa nadawcy:</label>
+        <input type="text" id="senderName" required>
+
+        <label for="templateName">Nazwa szablonu (bez rozszerzenia .html):</label>
+        <input type="text" id="templateName" required>
+
+        <label for="defaultSubject">Domyślny tytuł wiadomości:</label>
+        <input type="text" id="defaultSubject" required>
+
+        <label for="formConfig">Konfiguracja formularza (JSON):</label>
+        <textarea id="formConfig" rows="5" placeholder='{"pole1":"Nazwa pola1","pole2":"Nazwa pola2"}'></textarea>
+
+        <button type="submit">Dodaj sklep</button>
+      </form>
+      <p>Po dodaniu sklepu zostanie utworzony plik konfiguracyjny dla sklepu oraz sklep pojawi się na stronie głównej.</p>
+    `;
+
+    document.getElementById("newShopForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const shopData = {
+        storeName: document.getElementById('storeName').value,
+        senderEmail: document.getElementById('senderEmail').value,
+        senderName: document.getElementById('senderName').value,
+        templateName: document.getElementById('templateName').value,
+        defaultSubject: document.getElementById('defaultSubject').value,
+        formConfig: document.getElementById('formConfig').value
+      };
+
+
+      const token = localStorage.getItem("jwtToken");
+      fetch('/admin/shops', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify(shopData)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Błąd: " + response.statusText);
+        }
+        return response.text();
+      })
+      .then(msg => {
+        document.getElementById("infoMsg").innerText = msg;
+        document.getElementById("errorMsg").innerText = "";
+        document.getElementById("newShopForm").reset();
+      })
+      .catch(err => {
+        document.getElementById("errorMsg").innerText = err;
+      });
+    });
+  }
+
+  //--------------------------------------------------------------------------------
+  // 6. Wyświetlanie sklepów (zakładka "Sklepy na stronie głównej")
+  //--------------------------------------------------------------------------------
+  function loadShops() {
+    setActiveTab("nav-shops");
+    const content = document.getElementById("content");
+    content.innerHTML = "<h2>Sklepy na stronie głównej</h2><div id='errorMsg'></div><div id='infoMsg'></div>";
+
+    const token = localStorage.getItem("jwtToken");
+    fetch('/admin/shops', {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    })
+    .then(resp => {
+      if (!resp.ok) {
+        throw new Error("Błąd: " + resp.statusText);
+      }
+      return resp.json();
+    })
+    .then(shops => {
+      let html = "<ul>";
+      shops.forEach(shop => {
+        html += `<li><b>${shop.shopName}</b>
+                   | Nadawca: ${shop.emailFrom} (${shop.senderName})
+                   | Szablon: ${shop.templateName}
+                   | Domyślny tytuł: ${shop.defaultSubject}
+                </li>`;
+      });
+      html += "</ul>";
+      content.innerHTML = "<h2>Sklepy na stronie głównej</h2>" + html;
+    })
+    .catch(err => {
+      document.getElementById("errorMsg").innerText = "Błąd przy pobieraniu sklepów: " + err;
+    });
+  }
+</script>
+
+</body>
+</html>

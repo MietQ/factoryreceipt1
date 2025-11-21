@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Logowanie - FactoryReceipt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Czcionka Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <!-- reCAPTCHA v2 -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #000;
+            color: #ddd;
+            margin: 0;
+            /* Wyśrodkowujemy w pionie i poziomie */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Główny wrapper – w nim umieszczamy 2 kontenery w kolumnie */
+        .main-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px; /* odstęp między okienkami */
+        }
+
+        /* Podstawowy styl dla „ciemnych okienek” */
+        .dark-card {
+            background-color: #111;
+            padding: 20px 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            width: 360px;       /* szerokość kontenera */
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Nagłówek (np. Logowanie) */
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #fff;
+            font-size: 24px;
+        }
+        /* Drugi nagłówek (np. Kup dostęp tutaj) */
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #fff;
+            font-size: 22px;
+        }
+
+        /* Formularz */
+        .dark-card form {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            align-items: center;
+        }
+        label {
+            width: 100%;
+            margin-top: 10px;
+            color: #ccc;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            border: 1px solid #444;
+            border-radius: 12px;
+            background-color: #222;
+            color: #ddd;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button[type="submit"] {
+            margin-top: 15px;
+            width: 100%;
+            padding: 12px;
+            background-color: #555;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button[type="submit"]:hover {
+            background-color: #777;
+        }
+
+        /* Komunikat błędu */
+        .error {
+            color: red;
+            margin-top: 10px;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* reCAPTCHA */
+        .g-recaptcha {
+            margin-top: 30px;
+            margin-bottom: 15px;
+            transform: scale(0.88);
+            transform-origin: center;
+            align-self: center;
+            border: none;
+            border-radius: 12px;
+        }
+
+        /* Przycisk do Discorda */
+        .discord-button {
+            display: inline-block;
+            width: 100%;
+            background-color: #5865F2;
+            color: #fff;
+            text-align: center;
+            padding: 10px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .discord-button:hover {
+            background-color: #4852c8;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Główny wrapper, w nim 2 „dark-card” -->
+<div class="main-wrapper">
+
+    <!-- Pierwsze okienko: logowanie -->
+    <div class="dark-card">
+        <h1>Logowanie</h1>
+        <form id="loginForm">
+            <label for="userId">User ID:</label>
+            <input type="text" id="userId" name="userId" required>
+
+            <label for="password">Hasło:</label>
+            <input type="password" id="password" name="password" required>
+
+            <!-- reCAPTCHA v2 -->
+            <div class="g-recaptcha" data-sitekey="6LdgrOMqAAAAAPBuCz10epsL7mobQJy3RwekObjT"></div>
+
+            <button type="submit">Zaloguj się</button>
+        </form>
+        <div id="error" class="error"></div>
+    </div>
+
+    <!-- Drugie okienko: Kup dostęp tutaj -->
+    <div class="dark-card">
+        <h2>Kup dostęp tutaj</h2>
+        <a class="discord-button" href="https://discord.gg/factoryreceipt" target="_blank">
+            Dołącz na Discorda
+        </a>
+    </div>
+
+</div>
+
+<script>
+    document.getElementById("loginForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+        document.getElementById("error").textContent = "";
+
+        const userId = document.getElementById("userId").value.trim();
+        const password = document.getElementById("password").value;
+
+        // Pobierz token reCAPTCHA
+        const recaptchaResponse = grecaptcha.getResponse();
+        if (!recaptchaResponse) {
+            document.getElementById("error").textContent = "Potwierdź, że nie jesteś botem.";
+            return;
+        }
+
+        fetch("/api/account/current", {
+             method: "GET",
+             headers: {
+             "Authorization": "Bearer " + localStorage.getItem("jwtToken")}
+        })
+
+
+        // Wysyłamy dane, łącznie z tokenem reCAPTCHA
+        fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, password, recaptcha: recaptchaResponse })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => { throw new Error(text) });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Zalogowano:", data);
+            localStorage.setItem("loggedUserId", data.userId);
+            localStorage.setItem("jwtToken", data.token);
+            window.location.href = "/main";
+        })
+        .catch(error => {
+            document.getElementById("error").textContent = "Błąd logowania: " + error.message;
+            // Reset reCAPTCHA, aby użytkownik mógł spróbować ponownie
+            grecaptcha.reset();
+        });
+    });
+</script>
+
+</body>
+</html>
